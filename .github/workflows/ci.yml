@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  IMAGE_NAME: opsclub/terraform-providers-versions
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install -e .
+      
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -v --junitxml=report.xml
+      
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure()
+        with:
+          report_paths: 'report.xml'
+
+  build-binary:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: amd64
+          - os: ubuntu-latest
+            platform: linux
+            arch: arm64
+          - os: macos-latest
+            platform: darwin
+            arch: amd64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: Build binary
+        run: |
+          pyinstaller terraform_analyzer.spec --clean --noconfirm
+          cd dist && tar czf terraform-analyzer-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz terraform-analyzer
+      
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-analyzer-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/terraform-analyzer-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
+
+  build-and-push:
+    needs: [test, build-binary]
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+      packages: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Extract binaries
+        run: |
+          for platform in linux darwin; do
+            for arch in amd64 arm64; do
+              mkdir -p terraform-analyzer-$platform-$arch
+              tar xzf artifacts/terraform-analyzer-$platform-$arch/terraform-analyzer-$platform-$arch.tar.gz -C terraform-analyzer-$platform-$arch
+            done
+          done
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long
+            type=ref,event=branch
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            TERRAFORM_VERSION=1.10.3
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/terraform-analyzer-linux-amd64/terraform-analyzer-linux-amd64.tar.gz
+            artifacts/terraform-analyzer-linux-arm64/terraform-analyzer-linux-arm64.tar.gz
+            artifacts/terraform-analyzer-darwin-amd64/terraform-analyzer-darwin-amd64.tar.gz
+            artifacts/terraform-analyzer-darwin-arm64/terraform-analyzer-darwin-arm64.tar.gz
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
