@@ -1,0 +1,12 @@
+repos:
+- name: example-repo
+  repository: https://github.com/example/example-repo
+  terraform-path: terraform
+  branch: main  # Optional, default uses the default branch of the repository
+- name: api-gateway
+  repository: https://github.com/hashicorp/terraform-aws-consul-ecs
+  terraform-path: examples/api-gateway/
+  branch: main  # Optional, default uses the default branch of the repository
+- name: mesh-gateways
+  repository: https://github.com/hashicorp/terraform-aws-consul-ecs
+  terraform-path: examples/mesh-gateways/
