@@ -91,6 +91,7 @@ The analyzer supports five output formats:
 2. JSON: Structured data format for programmatic use
 3. CSV: Tabular format for spreadsheet analysis
 4. HTML: Rich web-based format with styling and visual indicators
+![HTML Report Example](assets/report_html.png)
 5. Markdown: Documentation-friendly format suitable for version control
 
 Each format has specific advantages:
@@ -117,6 +118,43 @@ The analyzer will:
 3. Track version changes over time
 4. Support multiple output formats
 5. Clean up temporary directories
+
+## GitHub Actions Integration
+
+### Scheduled Analysis
+
+You can automatically analyze Terraform versions across your repositories using GitHub Actions. The workflow runs daily and:
+1. Uses the Docker image to perform the analysis
+2. Uploads HTML and Markdown reports as artifacts
+3. Creates GitHub issues when version changes are detected
+
+To set this up:
+
+1. Add your configuration as a repository secret named `TERRAFORM_ANALYZER_CONFIG`:
+   ```yaml
+   # Example config.yaml content to store in the secret
+   repos:
+   - name: repo-name
+     repository: https://github.com/user/repo
+     terraform-path: path/to/terraform
+     branch: main
+   ```
+
+2. The workflow will:
+   - Run daily at midnight UTC
+   - Store reports for 90 days as workflow artifacts
+   - Create issues when version changes are detected
+   - Label issues with 'version-changes' and 'automated'
+
+You can also trigger the analysis manually using the "Run workflow" button in the GitHub Actions UI.
+
+### Accessing Results
+
+1. Find the workflow run in the Actions tab
+2. Download the artifacts to view:
+   - HTML report for rich formatting
+   - Markdown report for easy GitHub viewing
+3. Check the repository's Issues tab for any detected version changes
 
 ## Development
 

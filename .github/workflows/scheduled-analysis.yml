@@ -1,0 +1,55 @@
+name: Scheduled Version Analysis
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # Allow manual triggers
+
+jobs:
+  analyze-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # - name: Create config directory
+      #   run: mkdir -p config output
+
+      # - name: Create config.yaml
+      #   env:
+      #     CONFIG_CONTENT: ${{ secrets.TERRAFORM_ANALYZER_CONFIG }}
+      #   run: echo "$CONFIG_CONTENT" > config/config.yaml
+
+      - name: Run Analysis
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}/config:/app/config \
+            -v ${{ github.workspace }}/output:/app/output \
+            opsclub/terraform-providers-versions:latest
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-results
+          path: |
+            output/report.html
+            output/report.md
+          retention-days: 90
+
+      - name: Create Issue on Version Changes
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('output/report.md', 'utf8');
+            if (report.includes('Version changes detected')) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '🔄 Terraform Version Changes Detected',
+                body: report,
+                labels: ['version-changes', 'automated']
+              });
+            }
