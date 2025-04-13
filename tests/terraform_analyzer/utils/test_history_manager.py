@@ -5,12 +5,13 @@ from terraform_analyzer.models.history import HistoryEntry, VersionChange
 from terraform_analyzer.utils.history_manager import HistoryManager
 
 @pytest.fixture
-def sample_repository():
+def sample_repository(test_config):
+    repo = test_config['test_repositories'][0]
     return RepositoryInfo(
-        name="test-repo",
-        repository="https://github.com/test/repo",
-        terraform_path="terraform",
-        branch="main"
+        name=repo['name'],
+        repository=repo['repository'],
+        terraform_path=repo['terraform-path'],
+        branch=repo['branch']
     )
 
 @pytest.fixture
@@ -37,7 +38,7 @@ def test_add_entry_with_latest_versions(history_manager, sample_repository):
     
     history_manager.add_entry(result)
     
-    history = history_manager.get_repository_history("test-repo")
+    history = history_manager.get_repository_history(sample_repository.name)
     assert history is not None
     assert history.terraform_version == "1.5.0"
     assert "registry.terraform.io/hashicorp/aws" in history.provider_versions
@@ -76,7 +77,7 @@ def test_version_changes_detection(history_manager, sample_repository):
     )
     history_manager.add_entry(new_result)
     
-    changes = history_manager.get_version_changes("test-repo")
+    changes = history_manager.get_version_changes(sample_repository.name)
     assert len(changes) == 1
     
     change = changes[0]
@@ -104,7 +105,7 @@ def test_no_changes_when_versions_same(history_manager, sample_repository):
     history_manager.add_entry(result)
     history_manager.add_entry(result)
     
-    changes = history_manager.get_version_changes("test-repo")
+    changes = history_manager.get_version_changes(sample_repository.name)
     assert len(changes) == 0
 
 def test_error_handling(history_manager, sample_repository):
@@ -117,5 +118,5 @@ def test_error_handling(history_manager, sample_repository):
     )
     
     history_manager.add_entry(error_result)
-    history = history_manager.get_repository_history("test-repo")
+    history = history_manager.get_repository_history(sample_repository.name)
     assert history is None

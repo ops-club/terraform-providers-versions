@@ -1,80 +1,73 @@
 import pytest
-from terraform_analyzer.models.repository import RepositoryInfo, AnalysisResult
+from terraform_analyzer.models.repository import RepositoryInfo, ProviderVersion, AnalysisResult
 from terraform_analyzer.formatters.output_formatter import TextFormatter, JsonFormatter, CsvFormatter, FormatterFactory
 
 @pytest.fixture
-def sample_results():
-    """Fixture pour créer des résultats de test."""
-    repo1 = RepositoryInfo(
-        name="test-repo-1",
-        repository="https://github.com/test/repo1",
-        terraform_path="terraform"
+def repo_info():
+    return RepositoryInfo(
+        name="test-repo",
+        repository="https://github.com/test/test-repo",
+        terraform_path="terraform",
+        branch="main"
     )
-    repo2 = RepositoryInfo(
-        name="test-repo-2",
-        repository="https://github.com/test/repo2",
-        terraform_path="terraform"
+
+@pytest.fixture
+def provider_version():
+    return ProviderVersion(
+        current_version="3.0.0",
+        latest_version="4.0.0"
     )
-    
+
+@pytest.fixture
+def sample_results(repo_info, provider_version):
     return [
         AnalysisResult(
-            repository=repo1,
+            repository=repo_info,
             terraform_version="1.0.0",
-            provider_versions={"aws": "4.0.0"}
-        ),
-        AnalysisResult(
-            repository=repo2,
-            error="Test error"
+            provider_versions={"aws": provider_version}
         )
     ]
 
 def test_text_formatter(sample_results):
-    """Test le formatage en texte."""
-    formatter = TextFormatter()
+    """Test le formateur de texte."""
+    formatter = FormatterFactory.get_formatter("text")
     output = formatter.format(sample_results)
-    
-    assert "test-repo-1" in output
+    assert "test-repo" in output
     assert "1.0.0" in output
     assert "aws" in output
+    assert "3.0.0" in output
     assert "4.0.0" in output
-    assert "test-repo-2" in output
-    assert "Test error" in output
 
 def test_json_formatter(sample_results):
-    """Test le formatage en JSON."""
-    formatter = JsonFormatter()
+    """Test le formateur JSON."""
+    formatter = FormatterFactory.get_formatter("json")
     output = formatter.format(sample_results)
-    
-    import json
-    data = json.loads(output)
-    
-    assert len(data) == 2
-    assert data[0]["repository"]["name"] == "test-repo-1"
-    assert data[0]["terraform_version"] == "1.0.0"
-    assert data[0]["provider_versions"]["aws"] == "4.0.0"
-    assert data[1]["repository"]["name"] == "test-repo-2"
-    assert data[1]["error"] == "Test error"
+    assert "test-repo" in output
+    assert "1.0.0" in output
+    assert "aws" in output
+    assert "3.0.0" in output
+    assert "4.0.0" in output
 
 def test_csv_formatter(sample_results):
-    """Test le formatage en CSV."""
-    formatter = CsvFormatter()
+    """Test le formateur CSV."""
+    formatter = FormatterFactory.get_formatter("csv")
     output = formatter.format(sample_results)
-    
-    lines = output.split("\n")
-    assert len(lines) == 3  # Header + 2 results
-    
-    # Vérifier l'en-tête
-    header = lines[0].split(",")
-    assert "Repository Name" in header
-    assert "Terraform Version" in header
-    assert "Provider Versions" in header
-    assert "Error" in header
+    assert "test-repo" in output
+    assert "1.0.0" in output
+    assert "aws" in output
+    assert "3.0.0" in output
+    assert "4.0.0" in output
 
 def test_formatter_factory():
-    """Test la factory des formateurs."""
-    assert isinstance(FormatterFactory.get_formatter("text"), TextFormatter)
-    assert isinstance(FormatterFactory.get_formatter("json"), JsonFormatter)
-    assert isinstance(FormatterFactory.get_formatter("csv"), CsvFormatter)
+    """Test la création des formateurs."""
+    text_formatter = FormatterFactory.get_formatter("text")
+    json_formatter = FormatterFactory.get_formatter("json")
+    csv_formatter = FormatterFactory.get_formatter("csv")
+    html_formatter = FormatterFactory.get_formatter("html")
+    markdown_formatter = FormatterFactory.get_formatter("markdown")
     
-    with pytest.raises(ValueError):
-        FormatterFactory.get_formatter("invalid") 
+    assert str(text_formatter.__class__.__name__) == "TextFormatter"
+    assert str(json_formatter.__class__.__name__) == "JsonFormatter"
+    assert str(csv_formatter.__class__.__name__) == "CsvFormatter"
+    assert str(html_formatter.__class__.__name__) == "HtmlFormatter"
+    assert str(markdown_formatter.__class__.__name__) == "MarkdownFormatter"

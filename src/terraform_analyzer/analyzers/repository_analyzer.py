@@ -22,11 +22,12 @@ class RepositoryAnalyzer:
             shutil.rmtree(self.temp_dir)
 
     def _clone_repository(self):
+        """Clone the repository to a temporary directory."""
         try:
             git.Repo.clone_from(
                 self.repository.repository,
                 self.repo_path,
-                branch=self.repository.branch
+                branch=self.repository.branch if self.repository.branch else None
             )
         except git.exc.GitCommandError as e:
             if "not found" in str(e):
@@ -38,32 +39,36 @@ class RepositoryAnalyzer:
         except Exception as e:
             raise RepositoryAnalysisError(f"Unexpected error during clone: {str(e)}")
 
-    def analyze(self) -> AnalysisResult:
+    def _verify_terraform_path(self):
+        """Verify that the Terraform directory exists."""
+        terraform_path = os.path.join(self.repo_path, self.repository.terraform_path)
+        if not os.path.exists(terraform_path):
+            raise RepositoryAnalysisError(f"Terraform path does not exist: {terraform_path}")
+        return terraform_path
+
+    def analyze(self):
+        """Analyze the repository."""
         try:
             self._clone_repository()
+            terraform_path = self._verify_terraform_path()
             
-            terraform_path = os.path.join(self.repo_path, self.repository.terraform_path)
-            if not os.path.exists(terraform_path):
-                raise RepositoryAnalysisError(f"Terraform path does not exist: {terraform_path}")
-            
+            # Use TerraformAnalyzer as a class method
             terraform_version, provider_info = TerraformAnalyzer.analyze_directory(terraform_path)
             
-            # Convert provider versions to ProviderVersion objects
-            provider_version_objects = {
-                provider: ProviderVersion(
-                    current_version=version_info['current_version'],
-                    latest_version=version_info['latest_version']
+            # Convert provider info to ProviderVersion objects
+            provider_versions = {
+                name: ProviderVersion(
+                    current_version=info['current_version'],
+                    latest_version=info['latest_version']
                 )
-                for provider, version_info in provider_info.items()
+                for name, info in provider_info.items()
             }
             
             return AnalysisResult(
                 repository=self.repository,
                 terraform_version=terraform_version,
-                provider_versions=provider_version_objects,
-                error=None
+                provider_versions=provider_versions
             )
-            
         except Exception as e:
             return AnalysisResult(
                 repository=self.repository,

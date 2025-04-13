@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 @dataclass
@@ -16,6 +16,6 @@ class RepositoryInfo:
 @dataclass
 class AnalysisResult:
     repository: RepositoryInfo
-    terraform_version: Optional[str]
-    provider_versions: Dict[str, ProviderVersion]
+    terraform_version: Optional[str] = None
+    provider_versions: Dict[str, ProviderVersion] = field(default_factory=dict)
     error: Optional[str] = None
