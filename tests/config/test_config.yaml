@@ -1,0 +1,9 @@
+test_repositories:
+- name: api-gateway
+  repository: https://github.com/hashicorp/terraform-aws-consul-ecs
+  terraform-path: examples/api-gateway/
+  branch: main
+- name: mesh-gateways
+  repository: https://github.com/hashicorp/terraform-aws-consul-ecs
+  terraform-path: examples/mesh-gateways/
+  branch: main

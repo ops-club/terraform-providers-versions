@@ -1,4 +1,5 @@
 import os
+import yaml
 import pytest
 from unittest.mock import patch, MagicMock
 from terraform_analyzer.models.repository import RepositoryInfo
@@ -6,13 +7,14 @@ from terraform_analyzer.models.exceptions import RepositoryAnalysisError
 from terraform_analyzer.analyzers.repository_analyzer import RepositoryAnalyzer
 
 @pytest.fixture
-def repo_info():
+def repo_info(test_config):
     """Fixture pour créer un RepositoryInfo de test."""
+    repo = test_config['test_repositories'][0]
     return RepositoryInfo(
-        name="test-repo",
-        repository="https://github.com/test/test-repo",
-        terraform_path="terraform",
-        branch="main"
+        name=repo['name'],
+        repository=repo['repository'],
+        terraform_path=repo['terraform-path'],
+        branch=repo['branch']
     )
 
 @pytest.fixture
@@ -23,6 +25,24 @@ def mock_terraform_analyzer():
         analyzer.analyze_terraform_dir.return_value = ("1.0.0", {"aws": "4.0.0"})
         mock.return_value = analyzer
         yield mock
+
+@pytest.fixture
+def test_config():
+    """Load test configuration from YAML file."""
+    config_path = os.path.join(os.path.dirname(__file__), "../../config/test_config.yaml")
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
+
+@pytest.fixture
+def config_repo_info(test_config):
+    """Create RepositoryInfo from test config."""
+    repo = test_config['test_repositories'][0]
+    return RepositoryInfo(
+        name=repo['name'],
+        repository=repo['repository'],
+        terraform_path=repo['terraform-path'],
+        branch=repo.get('branch')
+    )
 
 def test_repository_analyzer_initialization(repo_info):
     """Test l'initialisation de l'analyseur de dépôt."""
@@ -115,4 +135,24 @@ def test_repository_analyzer_analyze_error(repo_info):
         assert result.repository == repo_info
         assert result.terraform_version is None
         assert result.provider_versions == {}
-        assert result.error == "Analysis failed" 
+        assert result.error == "Analysis failed"
+
+def test_repository_analyzer_with_config(config_repo_info, mock_terraform_analyzer):
+    """Test repository analyzer using configuration from file."""
+    analyzer = RepositoryAnalyzer(config_repo_info)
+    
+    with patch('terraform_analyzer.analyzers.repository_analyzer.git.Repo') as mock_git_repo:
+        mock_repo = MagicMock()
+        mock_git_repo.clone_from.return_value = mock_repo
+        
+        result = analyzer.analyze()
+        
+        assert result.repository == config_repo_info
+        assert result.terraform_version == "1.0.0"
+        assert result.provider_versions == {"aws": "4.0.0"}
+        assert result.error is None
+        mock_git_repo.clone_from.assert_called_once_with(
+            config_repo_info.repository,
+            analyzer.repo_path
+        )
+        mock_repo.git.checkout.assert_called_once_with(config_repo_info.branch)
