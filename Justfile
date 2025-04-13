@@ -23,9 +23,25 @@ run-json:
 run-csv:
     PYTHONPATH=src python src/terraform_analyzer/main.py --output-format csv
 
+# Run with HTML output
+run-html:
+    PYTHONPATH=src python src/terraform_analyzer/main.py --output-format html
+
+# Run with Markdown output
+run-md:
+    PYTHONPATH=src python src/terraform_analyzer/main.py --output-format markdown
+
 # Run and save output to a file (usage: just save-output json results.json)
 save-output format output_file:
     PYTHONPATH=src python src/terraform_analyzer/main.py --output-format {{format}} > {{output_file}}
+
+# Save HTML output to a file
+save-html output_file:
+    PYTHONPATH=src python src/terraform_analyzer/main.py --output-format html --output-file {{output_file}}
+
+# Save Markdown output to a file
+save-md output_file:
+    PYTHONPATH=src python src/terraform_analyzer/main.py --output-format markdown --output-file {{output_file}}
 
 # Run tests
 test:
@@ -56,10 +72,6 @@ docker-build:
 docker-run:
     docker run -v $(pwd)/config.yaml:/app/config.yaml -v $(pwd)/output:/app/output terraform-analyzer
 
-# Run the application in Docker with JSON output
-docker-run-json:
-    docker run -v $(pwd)/config.yaml:/app/config.yaml terraform-analyzer --format json
-
-# Run the application in Docker with CSV output
-docker-run-csv:
-    docker run -v $(pwd)/config.yaml:/app/config.yaml terraform-analyzer --format csv
+# Run with specific format in Docker (usage: just docker-run-format html)
+docker-run-format format:
+    docker run -v $(pwd)/config.yaml:/app/config.yaml -v $(pwd)/output:/app/output terraform-analyzer --output-format {{format}}

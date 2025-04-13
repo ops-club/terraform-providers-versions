@@ -44,11 +44,15 @@ Basic usage:
 just run              # Run with text output (default)
 just run-json         # Run with JSON output
 just run-csv          # Run with CSV output
+just run-html         # Run with HTML output
+just run-md           # Run with Markdown output
 ```
 
 Save output to a file:
 ```bash
 just save-output <format> <filename>  # e.g., just save-output json results.json
+just save-html <filename>             # Save HTML output to a file
+just save-md <filename>               # Save Markdown output to a file
 ```
 
 History and version tracking:
@@ -81,11 +85,20 @@ When using Docker, mount your configuration and output directories:
 
 ## Output Formats
 
-The analyzer supports three output formats:
+The analyzer supports five output formats:
 
 1. Text (default): Human-readable format
 2. JSON: Structured data format for programmatic use
 3. CSV: Tabular format for spreadsheet analysis
+4. HTML: Rich web-based format with styling and visual indicators
+5. Markdown: Documentation-friendly format suitable for version control
+
+Each format has specific advantages:
+- **Text**: Best for direct console viewing
+- **JSON**: Ideal for API integration and automated processing
+- **CSV**: Perfect for importing into Excel or data analysis tools
+- **HTML**: Great for sharing reports via web browsers, includes styling and visual indicators
+- **Markdown**: Excellent for documentation, GitHub wikis, and version-controlled reports
 
 ## Version History
 
