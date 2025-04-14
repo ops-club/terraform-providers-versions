@@ -24,7 +24,7 @@ jobs:
       - name: Run Analysis
         run: |
           docker run --rm \
-            -v ${{ github.workspace }}/config:/app/config \
+            -v ${{ github.workspace }}/config.yaml:/app/config.yaml \
             -v ${{ github.workspace }}/output:/app/output \
             opsclub/terraform-providers-versions:latest
 
