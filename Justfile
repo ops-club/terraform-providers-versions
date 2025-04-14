@@ -70,8 +70,4 @@ docker-build:
 
 # Run the application in Docker
 docker-run:
-    docker run -v $(pwd)/config.yaml:/app/config.yaml -v $(pwd)/output:/app/output terraform-analyzer
-
-# Run with specific format in Docker (usage: just docker-run-format html)
-docker-run-format format:
-    docker run -v $(pwd)/config.yaml:/app/config.yaml -v $(pwd)/output:/app/output terraform-analyzer --output-format {{format}}
+    docker run -v $(pwd)/config.yaml:/app/config.yaml -v $(pwd)/output:/app/output terraform-analyzer --html-output /app/output/report.html --markdown-output /app/output/report.md

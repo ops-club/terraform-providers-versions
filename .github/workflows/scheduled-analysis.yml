@@ -13,20 +13,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # - name: Create config directory
-      #   run: mkdir -p config output
-
-      # - name: Create config.yaml
-      #   env:
-      #     CONFIG_CONTENT: ${{ secrets.TERRAFORM_ANALYZER_CONFIG }}
-      #   run: echo "$CONFIG_CONTENT" > config/config.yaml
-
       - name: Run Analysis
         run: |
           docker run --rm \
             -v ${{ github.workspace }}/config.yaml:/app/config.yaml \
             -v ${{ github.workspace }}/output:/app/output \
-            opsclub/terraform-providers-versions:latest
+            opsclub/terraform-providers-versions:latest \
+            --html-output /app/output/report.html \
+            --markdown-output /app/output/report.md
 
       - name: Upload Results
         uses: actions/upload-artifact@v4

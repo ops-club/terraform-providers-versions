@@ -24,9 +24,6 @@ COPY setup.py .
 # Install the package
 RUN pip install -e .
 
-# Create directories for data
-RUN mkdir -p /app/data /app/output
-
 # Set environment variables
 ENV PYTHONPATH=/app/src
 ENV TERRAFORM_HISTORY_FILE=/app/data/terraform_history.json

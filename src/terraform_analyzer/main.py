@@ -13,15 +13,34 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Analyzes Terraform and provider versions in Git repositories"
     )
-    parser.add_argument(
-        "--output-format",
-        choices=["text", "json", "csv", "html", "markdown"],
-        default="text",
-        help="Output format (text, json, csv, html, markdown)",
+    # Output format arguments
+    output_group = parser.add_argument_group('output formats')
+    output_group.add_argument(
+        "--text-output",
+        help="Text output file path (prints to console if not specified)",
     )
-    parser.add_argument("--output-file", help="Output file path (optional)")
+    output_group.add_argument(
+        "--json-output",
+        help="JSON output file path",
+    )
+    output_group.add_argument(
+        "--csv-output",
+        help="CSV output file path",
+    )
+    output_group.add_argument(
+        "--html-output",
+        help="HTML output file path",
+    )
+    output_group.add_argument(
+        "--markdown-output",
+        help="Markdown output file path",
+    )
+    
+    # Other arguments
     parser.add_argument(
-        "--config", default="config.yaml", help="Path to the YAML configuration file"
+        "--config", 
+        default="config.yaml", 
+        help="Path to the YAML configuration file"
     )
     parser.add_argument(
         "--history-file",
@@ -95,7 +114,6 @@ def main():
     try:
         # Set include_prerelease flag on TerraformAnalyzer
         from terraform_analyzer.analyzers.terraform_analyzer import TerraformAnalyzer
-
         TerraformAnalyzer.set_include_prerelease(args.include_prerelease)
 
         # Initialize history manager
@@ -119,15 +137,31 @@ def main():
         for result in results:
             history_manager.add_entry(result)
 
-        # Format and display results
-        formatter = FormatterFactory.get_formatter(args.output_format)
-        output = formatter.format(results)
+        # Generate outputs for each requested format
+        output_formats = {
+            'text': args.text_output,
+            'json': args.json_output,
+            'csv': args.csv_output,
+            'html': args.html_output,
+            'markdown': args.markdown_output
+        }
 
-        if args.output_file:
-            with open(args.output_file, "w") as f:
-                f.write(output)
+        # Check if any output format was specified
+        if not any(output_formats.values()):
+            # Default to text output to console
+            formatter = FormatterFactory.get_formatter('text')
+            print(formatter.format(results))
         else:
-            print(output)
+            # Generate each requested output format
+            for format_type, output_file in output_formats.items():
+                if output_file is not None:
+                    formatter = FormatterFactory.get_formatter(format_type)
+                    output = formatter.format(results)
+                    if output_file == '-':
+                        print(output)
+                    else:
+                        with open(output_file, "w") as f:
+                            f.write(output)
 
     except Exception as e:
         print(f"Erreur : {str(e)}")
