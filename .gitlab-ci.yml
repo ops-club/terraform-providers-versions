@@ -1,0 +1,52 @@
+image: docker:latest
+
+services:
+  - docker:dind
+
+variables:
+  DOCKER_TLS_CERTDIR: "/certs"
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $CI_SCHEDULE == "terraform-version-analysis"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  schedule:
+    - cron: "0 0 * * *"  # At 00:00 (midnight) every day
+      branch: main
+      variables:
+        CI_SCHEDULE: terraform-version-analysis
+
+analyze-versions:
+  script:
+    # Create output directory
+    - mkdir -p output
+    
+    # Run analysis in Docker container
+    - docker run --rm
+      -v $CI_PROJECT_DIR/config.yaml:/app/config.yaml
+      -v $CI_PROJECT_DIR/output:/app/output
+      opsclub/terraform-providers-versions:latest
+      --html-output /app/output/report.html
+      --markdown-output /app/output/report.md
+    
+    # Create issue if version changes detected
+    - |
+      if grep -q "Version changes detected" output/report.md; then
+        curl --request POST \
+          --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" \
+          --header "Content-Type: application/json" \
+          --data '{
+            "title": "🔄 Terraform Version Changes Detected",
+            "description": "'"$(cat output/report.md)"'",
+            "labels": ["version-changes", "automated"]
+          }' \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/issues"
+      fi
+  artifacts:
+    paths:
+      - output/report.html
+      - output/report.md
+    expire_in: 90 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $CI_SCHEDULE == "terraform-version-analysis"
+    - if: $CI_PIPELINE_SOURCE == "web"
