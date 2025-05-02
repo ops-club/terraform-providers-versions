@@ -52,6 +52,9 @@ class RepositoryAnalyzer:
             self._clone_repository()
             terraform_path = self._verify_terraform_path()
             
+            # Get installed Terraform version from environment
+            installed_terraform_version = os.environ.get('TERRAFORM_VERSION')
+            
             # Use TerraformAnalyzer as a class method
             terraform_version, provider_info = TerraformAnalyzer.analyze_directory(terraform_path)
             
@@ -67,12 +70,14 @@ class RepositoryAnalyzer:
             return AnalysisResult(
                 repository=self.repository,
                 terraform_version=terraform_version,
+                installed_terraform_version=installed_terraform_version,
                 provider_versions=provider_versions
             )
         except Exception as e:
             return AnalysisResult(
                 repository=self.repository,
                 terraform_version=None,
+                installed_terraform_version=os.environ.get('TERRAFORM_VERSION'),
                 provider_versions={},
                 error=str(e)
             )

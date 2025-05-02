@@ -24,6 +24,7 @@ def sample_results(repo_info, provider_version):
         AnalysisResult(
             repository=repo_info,
             terraform_version="1.0.0",
+            installed_terraform_version="1.10.3",
             provider_versions={"aws": provider_version}
         )
     ]
@@ -33,7 +34,8 @@ def test_text_formatter(sample_results):
     formatter = FormatterFactory.get_formatter("text")
     output = formatter.format(sample_results)
     assert "test-repo" in output
-    assert "1.0.0" in output
+    assert "Required version: 1.0.0" in output
+    assert "Installed version: 1.10.3" in output
     assert "aws" in output
     assert "3.0.0" in output
     assert "4.0.0" in output
@@ -44,9 +46,11 @@ def test_json_formatter(sample_results):
     output = formatter.format(sample_results)
     assert "test-repo" in output
     assert "1.0.0" in output
+    assert "1.10.3" in output
     assert "aws" in output
     assert "3.0.0" in output
     assert "4.0.0" in output
+    assert '"installed_version": "1.10.3"' in output
 
 def test_csv_formatter(sample_results):
     """Test le formateur CSV."""
@@ -54,6 +58,7 @@ def test_csv_formatter(sample_results):
     output = formatter.format(sample_results)
     assert "test-repo" in output
     assert "1.0.0" in output
+    assert "1.10.3" in output
     assert "aws" in output
     assert "3.0.0" in output
     assert "4.0.0" in output
@@ -71,3 +76,22 @@ def test_formatter_factory():
     assert str(csv_formatter.__class__.__name__) == "CsvFormatter"
     assert str(html_formatter.__class__.__name__) == "HtmlFormatter"
     assert str(markdown_formatter.__class__.__name__) == "MarkdownFormatter"
+
+def test_error_handling(repo_info):
+    """Test error handling in formatters."""
+    error_result = [
+        AnalysisResult(
+            repository=repo_info,
+            terraform_version=None,
+            installed_terraform_version="1.10.3",
+            error="Test error"
+        )
+    ]
+    
+    text_output = FormatterFactory.get_formatter("text").format(error_result)
+    json_output = FormatterFactory.get_formatter("json").format(error_result)
+    csv_output = FormatterFactory.get_formatter("csv").format(error_result)
+    
+    assert "Error: Test error" in text_output
+    assert '"error": "Test error"' in json_output
+    assert "Test error" in csv_output

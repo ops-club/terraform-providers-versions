@@ -1,3 +1,4 @@
+import sys
 import argparse
 import yaml
 from typing import List
@@ -171,4 +172,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

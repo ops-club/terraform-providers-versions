@@ -1,0 +1,35 @@
+ARG TERRAFORM_VERSION=1.10.3
+ARG TARGETARCH=amd64
+ARG TARGETOS=linux
+
+FROM debian:bookworm-slim
+
+ARG TERRAFORM_VERSION
+ARG TARGETARCH
+ARG TARGETOS
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LO https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${TARGETOS}_${TARGETARCH}.zip \
+    && unzip terraform_${TERRAFORM_VERSION}_${TARGETOS}_${TARGETARCH}.zip \
+    && mv terraform /usr/local/bin/ \
+    && rm terraform_${TERRAFORM_VERSION}_${TARGETOS}_${TARGETARCH}.zip
+
+WORKDIR /app
+
+# Copy the pre-built binary
+COPY terraform-analyzer-${TARGETOS}-${TARGETARCH}/terraform-analyzer /usr/local/bin/
+
+# Create data directory
+RUN mkdir -p /app/data /app/output
+
+# Set environment variables
+ENV TERRAFORM_HISTORY_FILE=/app/data/terraform_history.json
+ENV OUTPUT_DIR=/app/output
+ENV TERRAFORM_VERSION=${TERRAFORM_VERSION}
+
+ENTRYPOINT ["terraform-analyzer"]

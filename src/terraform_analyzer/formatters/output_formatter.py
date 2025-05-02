@@ -23,7 +23,9 @@ class TextFormatter(OutputFormatter):
             if result.error:
                 output.append(f"Error: {result.error}")
             else:
-                output.append(f"Terraform Version: {result.terraform_version}")
+                output.append(f"\nTerraform:")
+                output.append(f"  Required version: {result.terraform_version}")
+                output.append(f"  Installed version: {result.installed_terraform_version or 'N/A'}")
                 if result.provider_versions:
                     output.append("\nProvider Versions:")
                     for provider, version in result.provider_versions.items():
@@ -49,7 +51,10 @@ class JsonFormatter(OutputFormatter):
                     'terraform_path': result.repository.terraform_path,
                     'branch': result.repository.branch
                 },
-                'terraform_version': result.terraform_version,
+                'terraform': {
+                    'required_version': result.terraform_version,
+                    'installed_version': result.installed_terraform_version
+                },
                 'provider_versions': {
                     provider: {
                         'current_version': version.current_version,
@@ -69,7 +74,8 @@ class CsvFormatter(OutputFormatter):
         
         # Write header
         writer.writerow(['repository', 'repository_url', 'terraform_path', 'branch', 
-                        'terraform_version', 'provider', 'current_version', 'latest_version', 'error'])
+                        'required_terraform', 'installed_terraform', 'provider', 
+                        'current_version', 'latest_version', 'error'])
         
         # Write data
         for result in results:
@@ -79,7 +85,8 @@ class CsvFormatter(OutputFormatter):
                     result.repository.repository,
                     result.repository.terraform_path,
                     result.repository.branch or '',
-                    '',  # terraform_version
+                    '',  # required_terraform
+                    result.installed_terraform_version or '',  # installed_terraform
                     '',  # provider
                     '',  # current_version
                     '',  # latest_version
@@ -92,7 +99,8 @@ class CsvFormatter(OutputFormatter):
                         result.repository.repository,
                         result.repository.terraform_path,
                         result.repository.branch or '',
-                        result.terraform_version,
+                        result.terraform_version or '',
+                        result.installed_terraform_version or '',
                         '',  # provider
                         '',  # current_version
                         '',  # latest_version
@@ -105,7 +113,8 @@ class CsvFormatter(OutputFormatter):
                             result.repository.repository,
                             result.repository.terraform_path,
                             result.repository.branch or '',
-                            result.terraform_version,
+                            result.terraform_version or '',
+                            result.installed_terraform_version or '',
                             provider,
                             version.current_version,
                             version.latest_version or 'N/A',
@@ -179,9 +188,17 @@ class HtmlFormatter(OutputFormatter):
             else:
                 # Info grid
                 html.append('<div class="info-grid">')
+                
+                # Required Terraform Version
                 html.append('<div class="info-item">')
-                html.append('<h4>Terraform Version</h4>')
+                html.append('<h4>Required Terraform Version</h4>')
                 html.append(f'<p>{result.terraform_version}</p>')
+                html.append('</div>')
+                
+                # Installed Terraform Version
+                html.append('<div class="info-item">')
+                html.append('<h4>Installed Terraform Version</h4>')
+                html.append(f'<p>{result.installed_terraform_version or "N/A"}</p>')
                 html.append('</div>')
                 
                 # Add summary info with major updates count
@@ -284,7 +301,9 @@ class MarkdownFormatter(OutputFormatter):
             if result.error:
                 md.append(f'**Error**: {result.error}\n')
             else:
-                md.append(f'**Terraform Version**: {result.terraform_version}\n')
+                md.append('### Terraform Versions')
+                md.append(f'- **Required Version**: {result.terraform_version}')
+                md.append(f'- **Installed Version**: {result.installed_terraform_version or "N/A"}\n')
 
                 if result.provider_versions:
                     # Add summary info
@@ -302,7 +321,7 @@ class MarkdownFormatter(OutputFormatter):
                                 else:
                                     minor_updates += 1
 
-                    md.append(f'### Provider Summary')
+                    md.append('### Provider Summary')
                     md.append(f'- Total Providers: {provider_count}')
                     if major_updates > 0:
                         md.append(f'- 🚨 **Major Updates Required**: {major_updates}')

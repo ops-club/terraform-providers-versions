@@ -11,6 +11,45 @@ This Python application allows you to analyze Terraform and provider versions us
 
 ## Installation
 
+### Pre-built Binaries
+
+Download the pre-built binary for your platform from the [latest release](https://github.com/your-org/terraform-providers-versions/releases/latest):
+
+- Linux (x86_64): `terraform-analyzer-linux-amd64.tar.gz`
+- Linux (ARM64): `terraform-analyzer-linux-arm64.tar.gz`
+- macOS (x86_64): `terraform-analyzer-darwin-amd64.tar.gz`
+- macOS (ARM64): `terraform-analyzer-darwin-arm64.tar.gz`
+
+Extract and install the binary:
+```bash
+tar xzf terraform-analyzer-*.tar.gz
+sudo mv terraform-analyzer /usr/local/bin/
+```
+
+### Docker Image
+
+Pre-built Docker images are available for both AMD64 and ARM64 architectures:
+
+```bash
+# Pull the latest release
+docker pull opsclub/terraform-providers-versions:latest
+
+# Or a specific version
+docker pull opsclub/terraform-providers-versions:v1.0.0
+```
+
+When using Docker, mount your configuration and output directories:
+```bash
+docker run -v $(pwd)/config.yaml:/app/config.yaml \
+           -v $(pwd)/output:/app/output \
+           opsclub/terraform-providers-versions:latest
+```
+
+You can specify a different Terraform version using the TERRAFORM_VERSION build argument:
+```bash
+docker pull opsclub/terraform-providers-versions:latest-terraform-1.7.0
+```
+
 1. Clone this repository
 2. Install dependencies with just:
 ```bash

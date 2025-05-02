@@ -17,5 +17,6 @@ class RepositoryInfo:
 class AnalysisResult:
     repository: RepositoryInfo
     terraform_version: Optional[str] = None
+    installed_terraform_version: Optional[str] = None  # Added field for installed version
     provider_versions: Dict[str, ProviderVersion] = field(default_factory=dict)
     error: Optional[str] = None
