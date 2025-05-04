@@ -1,5 +1,5 @@
 # Build stage
-FROM python:3.13-slim AS builder
+FROM python:3.11-slim-bullseye AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -22,7 +22,7 @@ COPY terraform_analyzer.spec .
 RUN pyinstaller terraform_analyzer.spec --clean --noconfirm
 
 # Runtime stage
-FROM debian:bookworm-slim
+FROM ubuntu:22.04
 
 # Define Terraform version argument with a default value
 ARG TERRAFORM_VERSION=1.10.3
