@@ -22,7 +22,7 @@ COPY terraform_analyzer.spec .
 RUN pyinstaller terraform_analyzer.spec --clean --noconfirm
 
 # Runtime stage
-FROM ubuntu:22.04
+FROM debian:bullseye-slim
 
 # Define Terraform version argument with a default value
 ARG TERRAFORM_VERSION=1.10.3
@@ -40,8 +40,13 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy the binary from builder
+# Copy the binary and required libraries from builder
 COPY --from=builder /app/dist/terraform-analyzer /usr/local/bin/
+COPY --from=builder /usr/local/lib/libpython3.11.so* /usr/local/lib/
+COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11
+
+# Configure dynamic linker to find the Python library
+RUN ldconfig /usr/local/lib
 
 # Create data directory
 RUN mkdir -p /app/data /app/output
@@ -50,5 +55,6 @@ RUN mkdir -p /app/data /app/output
 ENV TERRAFORM_HISTORY_FILE=/app/data/terraform_history.json
 ENV OUTPUT_DIR=/app/output
 ENV TERRAFORM_VERSION=${TERRAFORM_VERSION}
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 ENTRYPOINT ["terraform-analyzer"]
