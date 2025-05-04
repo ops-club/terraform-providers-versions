@@ -1,9 +1,10 @@
 # Build stage
-FROM python:3.13-slim as builder
+FROM python:3.13-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     git \
+    binutils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
