@@ -49,6 +49,8 @@ make -j$(nproc) && \
 make install && \
 cd ../.. && rm -rf glibc-2.38 glibc-2.38.tar.gz
 
+ENV LD_LIBRARY_PATH=/opt/glibc-2.38/lib:$LD_LIBRARY_PATH
+
 WORKDIR /app
 
 # Copy the binary and required libraries from builder
