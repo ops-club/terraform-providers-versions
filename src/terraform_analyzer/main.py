@@ -64,7 +64,7 @@ def read_config(config_path: str) -> List[RepositoryInfo]:
     try:
         with open(config_path, "r") as file:
             config = yaml.safe_load(file)
-            return [
+            repos_list = [
                 RepositoryInfo(
                     name=repo["name"],
                     repository=repo["repository"],
@@ -73,6 +73,7 @@ def read_config(config_path: str) -> List[RepositoryInfo]:
                 )
                 for repo in config["repos"]
             ]
+            return sorted(repos_list, key=lambda x: x.name)
     except yaml.YAMLError as e:
         raise RepositoryAnalysisError(f"Error parsing config file: {str(e)}")
     except FileNotFoundError:

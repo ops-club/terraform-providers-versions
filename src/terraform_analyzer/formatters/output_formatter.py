@@ -6,12 +6,62 @@ from io import StringIO
 from ..models.repository import RepositoryInfo, AnalysisResult
 
 class OutputFormatter(ABC):
+    def _parse_version_component(self, version_str: str, index: int, default: int = 0) -> int:
+        """
+        Safely parse a version component to an integer
+        Args:
+            version_str: The full version string (e.g. "1.2.3-pre2")
+            index: Which component to parse (0 for major, 1 for minor, 2 for patch)
+            default: Default value if parsing fails
+        Returns:
+            The parsed integer value
+        """
+        try:
+            parts = version_str.split('.')
+            if len(parts) > index:
+                # Split on '-' to remove pre-release identifiers and take first part
+                return int(parts[index].split('-')[0])
+            return default
+        except (ValueError, IndexError):
+            return default
+
+    def _compare_versions(self, current_version: str, latest_version: str) -> tuple[bool, bool, float]:
+        """
+        Compare version strings and return major update status and version progress.
+        Returns: (is_major_update, has_update, progress_percentage)
+        """
+        try:
+            # Parse version components
+            current_major = self._parse_version_component(current_version, 0)
+            current_minor = self._parse_version_component(current_version, 1)
+            current_patch = self._parse_version_component(current_version, 2)
+            
+            latest_major = self._parse_version_component(latest_version, 0)
+            latest_minor = self._parse_version_component(latest_version, 1)
+            latest_patch = self._parse_version_component(latest_version, 2)
+            
+            # Check for major update
+            is_major_update = latest_major > current_major
+            
+            # Calculate version progress
+            current_val = current_major * 10000 + current_minor * 100 + current_patch
+            latest_val = latest_major * 10000 + latest_minor * 100 + latest_patch
+            
+            progress = 0.0
+            if latest_val > 0:
+                progress = min(100, (current_val / latest_val) * 100)
+            
+            return is_major_update, True, progress
+        except (ValueError, IndexError):
+            return False, True, 0.0
+
     @abstractmethod
     def format(self, results: List[AnalysisResult]) -> str:
         pass
 
 class TextFormatter(OutputFormatter):
     def format(self, results: List[AnalysisResult]) -> str:
+        _display_progress = False
         output = []
         for result in results:
             output.append(f"Repository: {result.repository.name}")
@@ -27,13 +77,35 @@ class TextFormatter(OutputFormatter):
                 output.append(f"  Required version: {result.terraform_version}")
                 output.append(f"  Installed version: {result.installed_terraform_version or 'N/A'}")
                 if result.provider_versions:
+                    # Count updates
+                    major_updates = 0
+                    minor_updates = 0
+                    for provider, version in result.provider_versions.items():
+                        if version.latest_version and version.current_version != version.latest_version:
+                            is_major, _, _ = self._compare_versions(version.current_version, version.latest_version)
+                            if is_major:
+                                major_updates += 1
+                            else:
+                                minor_updates += 1
+
                     output.append("\nProvider Versions:")
+                    output.append(f"  Total providers: {len(result.provider_versions)}")
+                    if major_updates > 0:
+                        output.append(f"  Major updates needed: {major_updates}")
+                    if minor_updates > 0:
+                        output.append(f"  Minor updates available: {minor_updates}")
+                    output.append("")
+
                     for provider, version in result.provider_versions.items():
                         output.append(f"  - {provider}:")
                         output.append(f"      Current version: {version.current_version}")
                         output.append(f"      Latest version: {version.latest_version or 'N/A'}")
                         if version.latest_version and version.current_version != version.latest_version:
-                            output.append("      ⚠️ Upgrade available!")
+                            is_major, _, progress = self._compare_versions(version.current_version, version.latest_version)
+                            status = "⚠️ Major update required!" if is_major else "⚠️ Update available"
+                            output.append(f"      Status: {status}")
+                            if _display_progress and progress > 0:
+                                output.append(f"      Progress: {progress:.1f}%")
                 else:
                     output.append("\nNo provider versions found")
             
@@ -44,6 +116,28 @@ class JsonFormatter(OutputFormatter):
     def format(self, results: List[AnalysisResult]) -> str:
         output = []
         for result in results:
+            major_updates = 0
+            minor_updates = 0
+            provider_details = {}
+
+            for provider, version in result.provider_versions.items():
+                is_major = False
+                progress = 0.0
+                if version.latest_version and version.current_version != version.latest_version:
+                    is_major, _, progress = self._compare_versions(version.current_version, version.latest_version)
+                    if is_major:
+                        major_updates += 1
+                    else:
+                        minor_updates += 1
+
+                provider_details[provider] = {
+                    'current_version': version.current_version,
+                    'latest_version': version.latest_version,
+                    'needs_update': version.latest_version and version.current_version != version.latest_version,
+                    'is_major_update': is_major,
+                    'version_progress': round(progress, 1) if progress > 0 else 0
+                }
+
             entry = {
                 'repository': {
                     'name': result.repository.name,
@@ -55,13 +149,12 @@ class JsonFormatter(OutputFormatter):
                     'required_version': result.terraform_version,
                     'installed_version': result.installed_terraform_version
                 },
-                'provider_versions': {
-                    provider: {
-                        'current_version': version.current_version,
-                        'latest_version': version.latest_version
-                    }
-                    for provider, version in result.provider_versions.items()
+                'summary': {
+                    'total_providers': len(result.provider_versions),
+                    'major_updates': major_updates,
+                    'minor_updates': minor_updates
                 },
+                'provider_versions': provider_details,
                 'error': result.error
             }
             output.append(entry)
@@ -75,7 +168,7 @@ class CsvFormatter(OutputFormatter):
         # Write header
         writer.writerow(['repository', 'repository_url', 'terraform_path', 'branch', 
                         'required_terraform', 'installed_terraform', 'provider', 
-                        'current_version', 'latest_version', 'error'])
+                        'current_version', 'latest_version', 'update_status', 'version_progress', 'error'])
         
         # Write data
         for result in results:
@@ -90,6 +183,8 @@ class CsvFormatter(OutputFormatter):
                     '',  # provider
                     '',  # current_version
                     '',  # latest_version
+                    '',  # update_status
+                    '',  # version_progress
                     result.error
                 ])
             else:
@@ -104,10 +199,19 @@ class CsvFormatter(OutputFormatter):
                         '',  # provider
                         '',  # current_version
                         '',  # latest_version
+                        '',  # update_status
+                        '',  # version_progress
                         ''   # error
                     ])
                 else:
                     for provider, version in result.provider_versions.items():
+                        update_status = 'Up to date'
+                        progress = 0.0
+                        
+                        if version.latest_version and version.current_version != version.latest_version:
+                            is_major, _, progress = self._compare_versions(version.current_version, version.latest_version)
+                            update_status = 'Major update required' if is_major else 'Update available'
+                        
                         writer.writerow([
                             result.repository.name,
                             result.repository.repository,
@@ -118,6 +222,8 @@ class CsvFormatter(OutputFormatter):
                             provider,
                             version.current_version,
                             version.latest_version or 'N/A',
+                            update_status,
+                            f'{progress:.1f}%' if progress > 0 else '',
                             ''  # error
                         ])
         
@@ -208,13 +314,11 @@ class HtmlFormatter(OutputFormatter):
                 
                 for v in result.provider_versions.values():
                     if v.latest_version and v.current_version != v.latest_version:
-                        current_parts = v.current_version.split('.')
-                        latest_parts = v.latest_version.split('.')
-                        if len(current_parts) > 0 and len(latest_parts) > 0:
-                            if int(latest_parts[0]) > int(current_parts[0]):
-                                major_updates += 1
-                            else:
-                                minor_updates += 1
+                        is_major, _, _ = self._compare_versions(v.current_version, v.latest_version)
+                        if is_major:
+                            major_updates += 1
+                        else:
+                            minor_updates += 1
                 
                 html.append('<div class="info-item">')
                 html.append('<h4>Providers</h4>')
@@ -235,15 +339,8 @@ class HtmlFormatter(OutputFormatter):
                         is_outdated = version.latest_version and version.current_version != version.latest_version
                         
                         if is_outdated:
-                            current_parts = version.current_version.split('.')
-                            latest_parts = version.latest_version.split('.')
-                            is_major_update = False
-                            
-                            if len(current_parts) > 0 and len(latest_parts) > 0:
-                                if int(latest_parts[0]) > int(current_parts[0]):
-                                    is_major_update = True
-                            
-                            version_class = 'version-major-update' if is_major_update else 'version-outdated'
+                            is_major, _, _ = self._compare_versions(version.current_version, version.latest_version)
+                            version_class = 'version-major-update' if is_major else 'version-outdated'
                         else:
                             version_class = ''
                         
@@ -253,23 +350,18 @@ class HtmlFormatter(OutputFormatter):
                         html.append(f'<td>{version.latest_version or "N/A"}</td>')
                         
                         if is_outdated:
-                            badge_class = 'status-danger' if is_major_update else 'status-warning'
-                            badge_text = '🚨 Major Update Required!' if is_major_update else '⚠️ Update Available'
+                            badge_class = 'status-danger' if is_major else 'status-warning'
+                            badge_text = '🚨 Major Update Required!' if is_major else '⚠️ Update Available'
                             
                             html.append('<td>')
                             html.append(f'<div class="status-badge {badge_class}">{badge_text}</div>')
                             
                             # Add version progress bar
-                            current_parts = version.current_version.split('.')
-                            latest_parts = version.latest_version.split('.')
-                            if len(current_parts) >= 3 and len(latest_parts) >= 3:
-                                current_val = int(current_parts[0]) * 10000 + int(current_parts[1]) * 100 + int(current_parts[2])
-                                latest_val = int(latest_parts[0]) * 10000 + int(latest_parts[1]) * 100 + int(latest_parts[2])
-                                if latest_val > 0:
-                                    progress = min(100, (current_val / latest_val) * 100)
-                                    html.append('<div class="version-bar">')
-                                    html.append(f'<div class="version-bar-fill" style="width: {progress}%;"></div>')
-                                    html.append('</div>')
+                            _, _, progress = self._compare_versions(version.current_version, version.latest_version)
+                            if progress > 0:
+                                html.append('<div class="version-bar">')
+                                html.append(f'<div class="version-bar-fill" style="width: {progress}%;"></div>')
+                                html.append('</div>')
                             html.append('</td>')
                         else:
                             html.append('<td><div class="status-badge status-success">✓ Up to date</div></td>')
@@ -313,13 +405,11 @@ class MarkdownFormatter(OutputFormatter):
                     
                     for v in result.provider_versions.values():
                         if v.latest_version and v.current_version != v.latest_version:
-                            current_parts = v.current_version.split('.')
-                            latest_parts = v.latest_version.split('.')
-                            if len(current_parts) > 0 and len(latest_parts) > 0:
-                                if int(latest_parts[0]) > int(current_parts[0]):
-                                    major_updates += 1
-                                else:
-                                    minor_updates += 1
+                            is_major, _, _ = self._compare_versions(v.current_version, v.latest_version)
+                            if is_major:
+                                major_updates += 1
+                            else:
+                                minor_updates += 1
 
                     md.append('### Provider Summary')
                     md.append(f'- Total Providers: {provider_count}')
@@ -334,15 +424,13 @@ class MarkdownFormatter(OutputFormatter):
                     md.append('|----------|-----------------|----------------|---------|')
                     
                     for provider, version in result.provider_versions.items():
-                        status = '✓ Up to date'
+                        status = '✅ Up to date'
                         if version.latest_version and version.current_version != version.latest_version:
-                            current_parts = version.current_version.split('.')
-                            latest_parts = version.latest_version.split('.')
-                            if len(current_parts) > 0 and len(latest_parts) > 0:
-                                if int(latest_parts[0]) > int(current_parts[0]):
-                                    status = '🚨 **Major Update Required!**'
-                                else:
-                                    status = '⚠️ Update Available'
+                            is_major, _, _ = self._compare_versions(version.current_version, version.latest_version)
+                            if is_major:
+                                status = '🚨 **Major Update Required!**'
+                            else:
+                                status = '⚠️ Update Available'
                         
                         md.append(f'| {provider} | {version.current_version} | {version.latest_version or "N/A"} | {status} |')
                 else:
