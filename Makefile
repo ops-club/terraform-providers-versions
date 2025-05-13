@@ -1,7 +1,8 @@
 .PHONY: install build clean
 
 install:
-	pip install -r requirements.txt
+	pip install -r requirements.txt 
+	pip install -r requirements-dev.txt
 
 build:
 	pyinstaller terraform_analyzer.spec --clean --noconfirm
