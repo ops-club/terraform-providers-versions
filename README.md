@@ -2,6 +2,7 @@
 
 This Python application allows you to analyze Terraform and provider versions used in different Git repositories. It can track version changes over time and output results in multiple formats.
 
+![HTML Report Example](assets/report_html_crop.png)
 ## Prerequisites
 
 - Python 3.8 or higher
@@ -100,27 +101,44 @@ just show-history     # Show version history for all repositories
 just show-changes     # Show version changes between runs
 ```
 
-Development commands:
-```bash
-just activate         # Activate virtual environment
-just test            # Run tests
-just test-cov        # Run tests with coverage
-just clean           # Clean virtual environment and history
-```
+## Project Automation
 
-### Docker Support
+### Justfile Commands
 
-Build and run with Docker:
-```bash
-just docker-build            # Build Docker image
-just docker-run             # Run with text output
-just docker-run-json        # Run with JSON output
-just docker-run-csv         # Run with CSV output
-```
+[Just](https://github.com/casey/just) is used for task automation. Available commands:
 
-When using Docker, mount your configuration and output directories:
-- Config file: `-v $(pwd)/config.yaml:/app/config.yaml`
-- Output directory: `-v $(pwd)/output:/app/output`
+| Command | Description |
+|---------|-------------|
+| `just` or `just default` | Show list of available commands |
+| `just setup` | Create virtual environment and install dependencies |
+| `just activate` | Activate the virtual environment |
+| `just run` | Run the analyzer with text output (default) |
+| `just run-json` | Run with JSON output |
+| `just run-csv` | Run with CSV output |
+| `just run-html` | Run with HTML output |
+| `just run-md` | Run with Markdown output |
+| `just save-output <format> <filename>` | Run and save output to specified file |
+| `just save-html <filename>` | Save HTML output to specified file |
+| `just save-md <filename>` | Save Markdown output to specified file |
+| `just test` | Run all tests |
+| `just test-cov` | Run tests with coverage report |
+| `just show-history` | Show history for all repositories |
+| `just show-changes` | Show version changes for all repositories |
+| `just clean` | Remove virtual environment and history file |
+| `just docker-build` | Build Docker image |
+| `just docker-run` | Run the application in Docker |
+
+### Makefile Commands
+
+The project also includes a Makefile for common build tasks:
+
+| Command | Description |
+|---------|-------------|
+| `make install` | Install all dependencies (including dev dependencies) |
+| `make build` | Build the standalone executable using PyInstaller |
+| `make clean` | Clean build artifacts, cache files, and Python bytecode |
+
+For most users, the `just` commands provide all necessary functionality. The Makefile is primarily used for CI/CD pipelines and building release binaries.
 
 ## Output Formats
 
